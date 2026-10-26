@@ -2,6 +2,11 @@ import os
 import subprocess
 import shutil
 
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
+WSL_DISTRO = "Ubuntu-24.04"
 ## how to run on windows
 # cd "C:\Users\meren\Desktop\windot-main"
 # python setup.py
@@ -60,17 +65,24 @@ def run_cmd(cmd):
         print(e)
 
 def run_choco_command(command):
-    choco_path = shutil.which("choco") or "C:\\ProgramData\\chocolatey\\bin\\choco.exe"
-    
-    if not os.path.exists(choco_path):
-        print("❌ Chocolatey not found. Skipping command:", command)
-        return
-    
+    choco_path = (
+        shutil.which("choco")
+        or r"C:\ProgramData\chocolatey\bin\choco.exe"
+    )
+
+    if not os.path.isfile(choco_path):
+        print(f"❌ Chocolatey not found. Skipping: {command}")
+        return False
+
     try:
-        subprocess.run(['powershell.exe', choco_path] + command.split(), check=True)
+        subprocess.run(
+            [choco_path, *command.split()],
+            check=True
+        )
+        return True
     except subprocess.CalledProcessError as e:
-        print(f"⚠️ Chocolatey command failed: {command}")
-        print(e)
+        print(f"⚠️ Chocolatey command failed: {command}: {e}")
+        return False
 
 def clear_recycle_bin():
     try:
@@ -82,18 +94,50 @@ def clear_recycle_bin():
     except subprocess.CalledProcessError as e:
         print("⚠️ Skipped Recycle Bin clean-up:", e)
 
-def install_chocolatey():
-    print("\n🍫 Installing Chocolatey...")
+# def install_chocolatey():
+#     print("\n🍫 Installing Chocolatey...")
 
-    choco_path = shutil.which("choco")
-    if not choco_path:
-        try:
-            run_cmd(r'''PowerShell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"''')
-            print("✅ Chocolatey installation initiated. Please wait a moment...")
-        except Exception as e:
-            print("❌ Chocolatey installation failed:", e)
-    else:
+#     choco_path = shutil.which("choco")
+#     if not choco_path:
+#         try:
+#             run_cmd(r'''PowerShell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"''')
+#             print("✅ Chocolatey installation initiated. Please wait a moment...")
+#         except Exception as e:
+#             print("❌ Chocolatey installation failed:", e)
+#     else:
+#         print("✅ Chocolatey is already installed.")
+
+def install_chocolatey():
+    print("\n🍫 Checking Chocolatey...")
+
+    if shutil.which("choco") or os.path.isfile(
+        r"C:\ProgramData\chocolatey\bin\choco.exe"
+    ):
         print("✅ Chocolatey is already installed.")
+        return
+
+    ps_command = (
+        "Set-ExecutionPolicy Bypass -Scope Process -Force; "
+        "[System.Net.ServicePointManager]::SecurityProtocol = "
+        "[System.Net.ServicePointManager]::SecurityProtocol -bor 3072; "
+        "iex ((New-Object System.Net.WebClient).DownloadString("
+        "'https://community.chocolatey.org/install.ps1'))"
+    )
+
+    try:
+        subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-Command", ps_command
+            ],
+            check=True
+        )
+        print("✅ Chocolatey installed.")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Chocolatey installation failed: {e}")
+        raise
 
 def install_ubuntu_2404():
     try:
@@ -101,6 +145,74 @@ def install_ubuntu_2404():
         print("✅ Ubuntu 24.04 is being installed.")
     except subprocess.CalledProcessError as e:
         print("❌ Failed to install Ubuntu 24.04:", e)
+
+
+def is_wsl_ready():
+    try:
+        result = subprocess.run(
+            [
+                "wsl.exe",
+                "-d", WSL_DISTRO,
+                "--",
+                "sh", "-c", "id -u && test -d \"$HOME\""
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+
+        return result.returncode == 0
+
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+    
+def configure_wsl():
+    print("\n🐧 Configuring Ubuntu WSL...")
+
+    if not is_wsl_ready():
+        print("⚠️ WSL is not initialized or ready.")
+        return False
+
+    script = BASE_DIR / "wsl" / "setup.sh"
+
+    if not script.is_file():
+        print(f"❌ Missing script: {script}")
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                "wsl.exe",
+                "-d", WSL_DISTRO,
+                "--",
+                "wslpath", "-a", str(script)
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30
+        )
+
+        wsl_script = result.stdout.strip()
+
+        subprocess.run(
+            [
+                "wsl.exe",
+                "-d", WSL_DISTRO,
+                "--",
+                "bash", wsl_script
+            ],
+            check=True,
+            timeout=300
+        )
+
+        print("✅ WSL configured successfully.")
+        return True
+
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        print(f"❌ WSL configuration failed: {e}")
+        return False
 
 
 def install_packages():
@@ -134,7 +246,12 @@ def main():
     install_chocolatey()
     install_packages()
     update_hosts_file()
-    install_ubuntu_2404()
+
+    if not is_wsl_ready():
+        install_ubuntu_2404()
+
+    configure_wsl()
+
     flush_dns_cache()
     clear_recycle_bin()
     print("\n🎉 Done! Your system is cleaner and has Packages installed.")
