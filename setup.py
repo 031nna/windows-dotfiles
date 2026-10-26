@@ -221,6 +221,22 @@ def install_packages():
     # Update choco
     run_choco_command("upgrade chocolatey -y")
 
+    # Install Applications
+    run_choco_command("install docker-desktop -y")
+    run_choco_command("install brave -y")
+    run_choco_command("install wsl2 -y")
+    run_choco_command("install vscode -y")
+    run_choco_command("install googlechrome -y")
+    run_choco_command("install 7zip -y")
+    run_choco_command("install git -y")
+
+
+def install_entertainmment_packages():
+    print("\n📦 Installing Desktop Applications and WSL...")
+
+    # Update choco
+    run_choco_command("upgrade chocolatey -y")
+    
     # Install device drivers
     run_choco_command("install nvidia-display-driver -y")
     run_choco_command("install amd-ryzen-chipset-driver -y")
@@ -228,19 +244,11 @@ def install_packages():
     run_choco_command("install intel-chipset-device-software -y")
 
     # Install Applications
-    run_choco_command("install docker-desktop -y")
-    run_choco_command("install slack -y")
-    run_choco_command("install zwift -y")
-    run_choco_command("install brave -y")
-    run_choco_command("install wsl2 -y")
-    run_choco_command("install vscode -y")
-    run_choco_command("install googlechrome -y")
-    run_choco_command("install xbox -y")
-    run_choco_command("install 7zip -y")
-    run_choco_command("install steam -y")
-    run_choco_command("install git -y")
     run_choco_command("install lghub -y")
-    
+    run_choco_command("install slack -y")
+    run_choco_command("install steam -y")
+    run_choco_command("install zwift -y")
+    run_choco_command("install xbox -y")
 
 def main():
     install_chocolatey()
