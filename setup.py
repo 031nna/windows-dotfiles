@@ -94,50 +94,50 @@ def clear_recycle_bin():
     except subprocess.CalledProcessError as e:
         print("⚠️ Skipped Recycle Bin clean-up:", e)
 
-# def install_chocolatey():
-#     print("\n🍫 Installing Chocolatey...")
-
-#     choco_path = shutil.which("choco")
-#     if not choco_path:
-#         try:
-#             run_cmd(r'''PowerShell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"''')
-#             print("✅ Chocolatey installation initiated. Please wait a moment...")
-#         except Exception as e:
-#             print("❌ Chocolatey installation failed:", e)
-#     else:
-#         print("✅ Chocolatey is already installed.")
-
 def install_chocolatey():
-    print("\n🍫 Checking Chocolatey...")
+    print("\n🍫 Installing Chocolatey...")
 
-    if shutil.which("choco") or os.path.isfile(
-        r"C:\ProgramData\chocolatey\bin\choco.exe"
-    ):
+    choco_path = shutil.which("choco")
+    if not choco_path:
+        try:
+            run_cmd(r'''PowerShell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"''')
+            print("✅ Chocolatey installation initiated. Please wait a moment...")
+        except Exception as e:
+            print("❌ Chocolatey installation failed:", e)
+    else:
         print("✅ Chocolatey is already installed.")
-        return
 
-    ps_command = (
-        "Set-ExecutionPolicy Bypass -Scope Process -Force; "
-        "[System.Net.ServicePointManager]::SecurityProtocol = "
-        "[System.Net.ServicePointManager]::SecurityProtocol -bor 3072; "
-        "iex ((New-Object System.Net.WebClient).DownloadString("
-        "'https://community.chocolatey.org/install.ps1'))"
-    )
+# def install_chocolatey():
+#     print("\n🍫 Checking Chocolatey...")
 
-    try:
-        subprocess.run(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-ExecutionPolicy", "Bypass",
-                "-Command", ps_command
-            ],
-            check=True
-        )
-        print("✅ Chocolatey installed.")
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Chocolatey installation failed: {e}")
-        raise
+#     if shutil.which("choco") or os.path.isfile(
+#         r"C:\ProgramData\chocolatey\bin\choco.exe"
+#     ):
+#         print("✅ Chocolatey is already installed.")
+#         return
+
+#     ps_command = (
+#         "Set-ExecutionPolicy Bypass -Scope Process -Force; "
+#         "[System.Net.ServicePointManager]::SecurityProtocol = "
+#         "[System.Net.ServicePointManager]::SecurityProtocol -bor 3072; "
+#         "iex ((New-Object System.Net.WebClient).DownloadString("
+#         "'https://community.chocolatey.org/install.ps1'))"
+#     )
+
+#     try:
+    #     subprocess.run(
+    #         [
+    #             "powershell.exe",
+    #             "-NoProfile",
+    #             "-ExecutionPolicy", "Bypass",
+    #             "-Command", ps_command
+    #         ],
+    #         check=True
+    #     )
+    #     print("✅ Chocolatey installed.")
+    # except subprocess.CalledProcessError as e:
+    #     print(f"❌ Chocolatey installation failed: {e}")
+    #     raise
 
 def install_ubuntu_2404():
     try:
@@ -166,7 +166,7 @@ def is_wsl_ready():
     except (subprocess.SubprocessError, OSError):
         return False
 
-    
+
 def configure_wsl():
     print("\n🐧 Configuring Ubuntu WSL...")
 
@@ -181,21 +181,19 @@ def configure_wsl():
         return False
 
     try:
-        result = subprocess.run(
-            [
-                "wsl.exe",
-                "-d", WSL_DISTRO,
-                "--",
-                "wslpath", "-a", str(script)
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=30
+        # Convert Windows path to WSL path
+        # C:\Users\... -> /mnt/c/Users/...
+        windows_path = script.resolve()
+        drive = windows_path.drive.rstrip(":").lower()
+
+        wsl_script = (
+            f"/mnt/{drive}/"
+            f"{windows_path.relative_to(windows_path.anchor).as_posix()}"
         )
 
-        wsl_script = result.stdout.strip()
+        print(f"📂 WSL script: {wsl_script}")
 
+        # Execute setup.sh inside Ubuntu
         subprocess.run(
             [
                 "wsl.exe",
@@ -210,8 +208,16 @@ def configure_wsl():
         print("✅ WSL configured successfully.")
         return True
 
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        print(f"❌ WSL configuration failed: {e}")
+    except subprocess.TimeoutExpired:
+        print("❌ WSL configuration timed out.")
+        return False
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ WSL configuration failed (exit code {e.returncode}).")
+        return False
+
+    except (OSError, ValueError) as e:
+        print(f"❌ Unable to prepare WSL script path: {e}")
         return False
 
 
@@ -251,18 +257,18 @@ def install_entertainmment_packages():
     run_choco_command("install xbox -y")
 
 def main():
-    install_chocolatey()
+    # install_chocolatey()
     install_packages()
-    update_hosts_file()
+    # update_hosts_file()
 
     if not is_wsl_ready():
         install_ubuntu_2404()
 
     configure_wsl()
 
-    flush_dns_cache()
-    clear_recycle_bin()
-    print("\n🎉 Done! Your system is cleaner and has Packages installed.")
+    # flush_dns_cache()
+    # clear_recycle_bin()
+    print("\n🎉 Done! Your Packages are installed.")
 
 if __name__ == "__main__":
     main()
