@@ -265,7 +265,6 @@ def main():
         install_ubuntu_2404()
 
     configure_wsl()
-
     # flush_dns_cache()
     # clear_recycle_bin()
     print("\n🎉 Done! Your Packages are installed.")
